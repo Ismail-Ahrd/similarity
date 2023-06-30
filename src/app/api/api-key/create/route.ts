@@ -1,33 +1,31 @@
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { CreateApiData } from "@/types/api";
-import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import {nanoid} from "nanoid";
 import {z} from "zod";
-import { withMethods } from "@/lib/api-middlwares/with-methods";
+import { NextResponse } from "next/server";
 
-const handler = async (req: NextApiRequest, res: NextApiResponse<CreateApiData>) => {
+export async function GET(req: Request) {
     try {
-        const user = await getServerSession(req, res, authOptions)
+        const user = await getServerSession(authOptions)
             .then(res => res?.user);
          
         if (!user) {
-            return res.status(401).json({
+            return NextResponse.json({
                 error: "Unauthorized to perform this action",
                 createdApiKey: null
-            })
+            }, {status: 401});  
         } 
         
         const existingApiKey = await db.apiKey.findFirst({
             where: {userId: user.id, enabled: true}
         });
 
-        if (existingApiKey) {
-            return res.status(400).json({
+        if (existingApiKey) { 
+            return NextResponse.json({
                 error: "You already have a valid API key",
                 createdApiKey: null
-            });
+            }, {status: 401});    
         }
 
         const createdApiKey = await db.apiKey.create({
@@ -37,24 +35,22 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<CreateApiData>)
             }
         })
 
-        return res.status(200).json({
+        return NextResponse.json({
             error: null,
             createdApiKey
-        })
+        }, {status: 200})
 
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return res.status(400).json({
+            return NextResponse.json({
                 error: error.issues,
                 createdApiKey: null
-            });
+            }, {status: 400});
         }
 
-        return res.status(500).json({
+        return NextResponse.json({
             error: "Internal Server error.",
             createdApiKey: null
-        });
+        }, {status: 400});
     }
 }
-
-export default withMethods(['GET'], handler);

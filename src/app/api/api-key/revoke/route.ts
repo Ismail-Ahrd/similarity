@@ -4,18 +4,19 @@ import { db } from "@/lib/db";
 import { RevokeApiData } from "@/types/api";
 import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
-const handler = async (req: NextApiRequest, res: NextApiResponse<RevokeApiData>) => {
+export async function POST(req: Request){
     try {
-        const user = await getServerSession(req, res, authOptions)
+        const user = await getServerSession(authOptions)
             .then(res => res?.user);
 
         if(!user) {
-            return res.status(401).json({
+            return NextResponse.json({
                 error: 'Unauthorized',
                 success: false
-            });
+            }, {status: 401});
         }
 
         const validApiKey = await db.apiKey.findFirst({
@@ -23,9 +24,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<RevokeApiData>)
         })
 
         if (!validApiKey) {
-        return res
-            .status(500)
-            .json({ error: 'This API key could not be revoked.', success: false })
+        return NextResponse.json({ 
+            error: 'This API key could not be revoked.', 
+            success: false 
+        }, {status: 500})
         }
 
         // invalidate API key
@@ -36,16 +38,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<RevokeApiData>)
             }
         })
 
-    return res.status(200).json({ error: null, success: true });
+    return NextResponse.json({ error: null, success: true }, {status: 200});
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: error.issues, success: false })
+            return NextResponse.json({ error: error.issues, success: false }, {status: 400})
         }
     
-        return res
-        .status(500)
-        .json({ error: 'Internal Server Error', success: false })
+        return NextResponse.json({ error: 'Internal Server Error', success: false }, {status: 500})
     }
 }
-
-export default withMethods(['POST'], handler);

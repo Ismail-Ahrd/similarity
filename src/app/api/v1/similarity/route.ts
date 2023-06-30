@@ -1,8 +1,7 @@
 import { cosineSimilarity } from '@/helpers/cosine-sim'
-import { withMethods } from '@/lib/api-middlwares/with-methods'
 import { db } from '@/lib/db'
 import { openai } from '@/lib/openai'
-import { NextApiRequest, NextApiResponse } from 'next'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 const reqSchema = z.object({
@@ -10,13 +9,13 @@ const reqSchema = z.object({
   text2: z.string().max(1000),
 })
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  const body = req.body as unknown
+export async function POST(req: Request){
+  const body = await req.json() as unknown
 
-  const apiKey = req.headers.authorization
+  const apiKey = req.headers.get('Authorization')
 
   if (!apiKey) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return NextResponse.json({ error: 'Unauthorized' }, {status: 401})
   }
 
   try {
@@ -30,7 +29,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     })
 
     if (!validApiKey) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return NextResponse.json({ error: 'Unauthorized' }, {status: 401})
     }
 
     const start = new Date()
@@ -61,14 +60,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       },
     })
 
-    return res.status(200).json({ success: true, text1, text2, similarity })
+    return NextResponse.json({ success: true, text1, text2, similarity }, {status: 200})
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.issues })
+      return NextResponse.json({ error: error.issues }, {status: 400})
     }
 
-    return res.status(500).json({ error: 'Internal server error' })
+    return NextResponse.json({ error: 'Internal server error' }, {status: 500})
   }
 }
-
-export default withMethods(['POST'], handler)
